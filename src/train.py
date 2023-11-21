@@ -136,7 +136,7 @@ def generate_position_with_data_dir(i):
     return generate_position(i, data_dir)
 
 
-def generate_images(num_positions, data_dir):
+def generate_images(num_positions, data_dir, save_examples=False):
     data_dir = Path(data_dir).resolve()
     num_processes = min(multiprocessing.cpu_count(), num_positions)
     counter = Value('i', 0)
@@ -155,6 +155,15 @@ def generate_images(num_positions, data_dir):
                             logging.warning(f"Failed to generate image for position {i}")
             files = [f for f in pool.imap(generate_position_with_data_dir, range(num_positions)) if f is not None and Path(f).is_file()]
     logging.info(f"Generated {len(files)} images out of {num_positions} requested")
+    
+    # Save some examples for inspection
+    if save_examples:
+        example_dir = Path("examples/generated").resolve()
+        example_dir.mkdir(parents=True, exist_ok=True)
+        for i, file in enumerate(files[:10]):
+            shutil.copy(file, example_dir / f"example_{i}.jpg")
+        logging.info(f"Saved examples of generated images to {example_dir}")
+    
     return files
 
 # Split file paths and log the process
@@ -171,7 +180,7 @@ def split_files(files, train_test_ratio, val_ratio):  # Added validation ratio
     return train_files, val_files, test_files  # Return validation files
 
 
-def augment_and_save_images(files, image_size, num_augmented_images, data_dir, folder):
+def augment_and_save_images(files, image_size, num_augmented_images, data_dir, folder, save_examples=False):
     data_dir = Path(data_dir).resolve()
     total_augmentations = len(files) * num_augmented_images
     with tqdm(total=total_augmentations, desc="Augmenting images") as pbar:
@@ -197,6 +206,14 @@ def augment_and_save_images(files, image_size, num_augmented_images, data_dir, f
                     f"Augmented and saved {num_augmented_images} images for {file_path}"
                 )
                 pbar.update(num_augmented_images)  # Update the progress bar here
+                
+                # Save some examples for inspection
+                if save_examples and file_path.stem.endswith("_0"):
+                    example_dir = Path("examples/augmented").resolve()
+                    example_dir.mkdir(parents=True, exist_ok=True)
+                    for i, aug_img_path in enumerate(aug_img_paths[:10]):
+                        shutil.copy(aug_img_path, example_dir / f"example_{i}.jpg")
+                    logging.info(f"Saved examples of augmented images to {example_dir}")
             except Exception as e:
                 logging.error(
                     f"Error occurred while augmenting and saving image {file_path}: {type(e).__name__}, {e}"
@@ -248,9 +265,9 @@ def main():
     val_files = move_files(val_files, data_dir, "val")
     test_files = move_files(test_files, data_dir, "test")
     # Augment images in their respective directories
-    augment_and_save_images(train_files, image_size, num_augmented_images, data_dir, "train")
-    augment_and_save_images(val_files, image_size, num_augmented_images, data_dir, "val")  # Augment validation images
-    augment_and_save_images(test_files, image_size, num_augmented_images, data_dir, "test")
+    augment_and_save_images(train_files, image_size, num_augmented_images, data_dir, "train", save_examples=True)
+    augment_and_save_images(val_files, image_size, num_augmented_images, data_dir, "val", save_examples=True)  # Augment validation images
+    augment_and_save_images(test_files, image_size, num_augmented_images, data_dir, "test", save_examples=True)
     logging.info("Training, validation, and test files are moved to the respective directories")  # Log validation directory
     # Delete all files in the data directory after moving them into their respective sub directories
     for file in data_dir.glob('*'):
