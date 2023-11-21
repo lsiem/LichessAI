@@ -128,7 +128,7 @@ class ImageGenerator:
         try:
             fen = board.fen()
         except chess.BoardError as e:
-            logging.error(f"Error occurred while generating FEN for position {i}: {type(e).__name__}, {e}")
+            logging.error(f"Error occurred while generating FEN for position {i} with board state {board.fen()}: {type(e).__name__}, {e}")
             return None
 
         # Validate FEN string
@@ -149,7 +149,7 @@ class ImageGenerator:
             # Convert board to SVG
             svg_data = chess.svg.board(board=board)
         except chess.svg.SvgError as e:
-            logging.error(f"Error occurred while converting board to SVG for position {i}: {type(e).__name__}, {e}")
+            logging.error(f"Error occurred while converting board to SVG for position {i} with board state {board.fen()}: {type(e).__name__}, {e}")
             return None
 
         try:
@@ -157,7 +157,7 @@ class ImageGenerator:
             jpeg_data = cairosvg.svg2jpeg(bytestring=svg_data.encode("utf-8"))
             logging.info(f"Converted SVG to JPEG for position {i}")
         except cairosvg.Error as e:
-            logging.error(f"Error occurred while converting SVG to JPEG for position {i}: {type(e).__name__}, {e}")
+            logging.error(f"Error occurred while converting SVG to JPEG for position {i} with SVG data {svg_data}: {type(e).__name__}, {e}")
             return None
 
         try:
@@ -166,7 +166,7 @@ class ImageGenerator:
                 f.write(jpeg_data)
             logging.info(f"Generated image for position {i} and saved to {output_file}")
         except OSError as e:
-            logging.error(f"Error occurred while saving JPEG for position {i}: {type(e).__name__}, {e}")
+            logging.error(f"Error occurred while saving JPEG for position {i} with JPEG data {jpeg_data}: {type(e).__name__}, {e}")
             if output_file.exists():
                 os.remove(output_file)
                 logging.info(f"Removed failed file {output_file}")
@@ -469,20 +469,20 @@ def augment_and_save_images(files, image_size, num_augmented_images, data_dir, f
                 with Image.open(file_path) as img:
                     img = np.array(img.resize(image_size))
             except OSError as e:
-                logging.error(f"Error occurred while opening image file {file_path}: {type(e).__name__}, {e}")
+                logging.error(f"Error occurred while opening image file {file_path} with image size {img.size}: {type(e).__name__}, {e}")
                 return
 
             try:
                 img = np.reshape(img, (image_size[0], image_size[1], 3))  # Reshape the image
                 img = img.astype('uint8')  # Ensure the image is in the correct data type
             except ValueError as e:
-                logging.error(f"Error occurred while reshaping or converting data type of image {file_path}: {type(e).__name__}, {e}")
+                logging.error(f"Error occurred while reshaping or converting data type of image {file_path} with image shape {img.shape} and data type {img.dtype}: {type(e).__name__}, {e}")
                 return
 
             try:
                 aug_imgs = augment_images(img, num_augmented_images)
             except Exception as e:  # Catch all exceptions as the augment_images function can raise various types of exceptions
-                logging.error(f"Error occurred while augmenting image {file_path}: {type(e).__name__}, {e}")
+                logging.error(f"Error occurred while augmenting image {file_path} with image shape {img.shape} and data type {img.dtype}: {type(e).__name__}, {e}")
                 return
 
             aug_img_paths = [
@@ -494,7 +494,7 @@ def augment_and_save_images(files, image_size, num_augmented_images, data_dir, f
                     with Image.fromarray(aug_img) as img:
                         img.save(aug_img_path, "JPEG", quality=85)
                 except OSError as e:
-                    logging.error(f"Error occurred while saving augmented image {aug_img_path}: {type(e).__name__}, {e}")
+                    logging.error(f"Error occurred while saving augmented image {aug_img_path} with image shape {aug_img.shape} and data type {aug_img.dtype}: {type(e).__name__}, {e}")
                     if aug_img_path.exists():
                         os.remove(aug_img_path)
                         logging.info(f"Removed failed file {aug_img_path}")
