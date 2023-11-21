@@ -67,6 +67,9 @@ def augment_images(img, num_augmented_images):
             iaa.AdditiveGaussianNoise(scale=(10, 60)),
             iaa.Crop(percent=(0, 0.2)),
             iaa.LinearContrast((0.75, 1.5)),
+            iaa.Multiply((0.8, 1.2)),  # Brightness adjustment
+            iaa.GammaContrast((0.8, 1.2)),  # Contrast adjustment
+            iaa.CropAndPad(percent=(-0.25, 0.25)),  # Random cropping
         ]
     )
 
