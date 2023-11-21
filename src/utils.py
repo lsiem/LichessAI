@@ -44,3 +44,21 @@ def augment_and_save_images(files, image_size, num_augmented_images, data_dir, f
 
 def move_files(files, data_dir, folder):
     # function body
+def setup_logging(log_dir):
+    log_dir = Path(log_dir).resolve()
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / "app.log"
+
+    # Create a console handler with a higher log level
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(filename=log_file),
+            console_handler
+        ],
+    )
+    logging.info("Logging setup complete. Logs will be written to {}".format(log_file))
