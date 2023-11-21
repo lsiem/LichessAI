@@ -1,3 +1,7 @@
+"""
+This module contains functions for generating, augmenting, and splitting chess position images for training, validation, and testing.
+"""
+
 import chess
 import chess.svg
 import cairosvg
@@ -23,6 +27,12 @@ random.seed(42)
 data_dir = Path("data").resolve()
 
 def setup_logging(log_dir):
+    """
+    Sets up logging for the application.
+    
+    Args:
+        log_dir (str): The directory where the log file will be stored.
+    """
     log_dir = Path(log_dir).resolve()
     log_dir.mkdir(exist_ok=True)
     log_file = log_dir / "app.log"
@@ -45,6 +55,15 @@ def setup_logging(log_dir):
 
 # Sets up the train, test, and validation directories within the given data directory. Checks if directories already exist and contain data, warns if they do, creates them if needed. Logs status messages. Returns the data directory.
 def setup_directories(data_dir):
+    """
+    Sets up the train, test, and validation directories within the given data directory.
+    
+    Args:
+        data_dir (str): The directory where the data will be stored.
+        
+    Returns:
+        str: The data directory.
+    """
     data_dir = Path(data_dir).resolve()
     # Check if directories already exist and contain data
     for dir_name in ["train", "test", "val"]:
@@ -60,6 +79,16 @@ def setup_directories(data_dir):
 
 # Augment images and log the process
 def augment_images(img, num_augmented_images):
+    """
+    Augments images and logs the process.
+    
+    Args:
+        img (numpy.ndarray): The image to be augmented.
+        num_augmented_images (int): The number of augmented images to generate.
+        
+    Returns:
+        numpy.ndarray: The augmented images.
+    """
     aug = iaa.Sequential(
         [
             iaa.Affine(rotate=(-25, 25)),
@@ -90,6 +119,16 @@ def augment_images(img, num_augmented_images):
 
 # Generates a random chess position as a JPEG image file.
 def generate_position(i, data_dir):
+    """
+    Generates a random chess position as a JPEG image file.
+    
+    Args:
+        i (int): The index of the position.
+        data_dir (str): The directory where the image will be stored.
+        
+    Returns:
+        str: The path to the output file.
+    """
     data_dir = Path(data_dir).resolve()
     output_file = None
     try:
@@ -137,10 +176,30 @@ def generate_position(i, data_dir):
     return output_file
 
 def generate_position_with_data_dir(i):
+    """
+    Wrapper function for generate_position that uses the global data_dir variable.
+    
+    Args:
+        i (int): The index of the position.
+        
+    Returns:
+        str: The path to the output file.
+    """
     return generate_position(i, data_dir)
 
 
 def generate_images(num_positions, data_dir, save_examples=False):
+    """
+    Generates a specified number of chess position images.
+    
+    Args:
+        num_positions (int): The number of positions to generate.
+        data_dir (str): The directory where the images will be stored.
+        save_examples (bool, optional): Whether to save examples of the generated images. Defaults to False.
+        
+    Returns:
+        list: The paths to the generated images.
+    """
     data_dir = Path(data_dir).resolve()
     num_processes = min(multiprocessing.cpu_count(), num_positions)
     counter = Value('i', 0)
@@ -172,6 +231,17 @@ def generate_images(num_positions, data_dir, save_examples=False):
 
 # Split file paths and log the process
 def split_files(files, train_test_ratio, val_ratio):  # Added validation ratio
+    """
+    Splits the files into training, validation, and test sets.
+    
+    Args:
+        files (list): The files to be split.
+        train_test_ratio (float): The ratio of training files to total files.
+        val_ratio (float): The ratio of validation files to total files.
+        
+    Returns:
+        tuple: The training, validation, and test files.
+    """
     train_files, temp_files = train_test_split(
         files, test_size=1 - train_test_ratio, random_state=42
     )
@@ -185,6 +255,17 @@ def split_files(files, train_test_ratio, val_ratio):  # Added validation ratio
 
 
 def augment_and_save_images(files, image_size, num_augmented_images, data_dir, folder, save_examples=False):
+    """
+    Augments and saves images.
+    
+    Args:
+        files (list): The files to be augmented.
+        image_size (tuple): The size of the images.
+        num_augmented_images (int): The number of augmented images to generate.
+        data_dir (str): The directory where the images will be stored.
+        folder (str): The subdirectory where the images will be stored.
+        save_examples (bool, optional): Whether to save examples of the augmented images. Defaults to False.
+    """
     data_dir = Path(data_dir).resolve()
     total_augmentations = len(files) * num_augmented_images
     with tqdm(total=total_augmentations, desc="Augmenting images") as pbar:
@@ -231,6 +312,17 @@ def augment_and_save_images(files, image_size, num_augmented_images, data_dir, f
 
 # Move the files to the respective directories and log the process
 def move_files(files, data_dir, folder):
+    """
+    Moves the files to the respective directories and logs the process.
+    
+    Args:
+        files (list): The files to be moved.
+        data_dir (str): The directory where the files will be moved.
+        folder (str): The subdirectory where the files will be moved.
+        
+    Returns:
+        list: The new paths of the moved files.
+    """
     data_dir = Path(data_dir).resolve()
     new_paths = []
     for file_path in tqdm(files, desc=f"Moving files to {folder}", file=open(os.devnull, 'w')):
@@ -245,6 +337,9 @@ def move_files(files, data_dir, folder):
 
 
 def main():
+    """
+    The main function of the script. Sets up logging and directories, generates and augments images, splits them into training, validation, and test sets, and moves them to their respective directories.
+    """
     log_dir = Path("log").resolve()
     setup_logging(log_dir)
     data_dir = setup_directories(Path("data").resolve())
