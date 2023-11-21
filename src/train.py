@@ -131,45 +131,56 @@ def generate_position(i, data_dir):
     """
     data_dir = Path(data_dir).resolve()
     output_file = None
+    logging.info(f"Starting to generate position {i}")
+    board = chess.Board()
+    for _ in range(np.random.randint(1, 50)):
+        if not board.is_game_over():
+            move = random.choice(list(board.legal_moves))
+            board.push(move)
+
     try:
-        logging.info(f"Starting to generate position {i}")
-        board = chess.Board()
-        for _ in range(np.random.randint(1, 50)):
-            if not board.is_game_over():
-                move = random.choice(list(board.legal_moves))
-                board.push(move)
-
         fen = board.fen()
-        # Validate FEN string
-        if not chess.Board(fen).is_valid():
-            logging.warning(f"Invalid FEN string generated for position {i}. Skipping.")
-            return None
+    except chess.BoardError as e:
+        logging.error(f"Error occurred while generating FEN for position {i}: {type(e).__name__}, {e}")
+        return None
 
-        fen_file = data_dir / f"chess_position_{i}_{safe_fen}.fen"  # Save as FEN
+    # Validate FEN string
+    if not chess.Board(fen).is_valid():
+        logging.warning(f"Invalid FEN string generated for position {i}. Skipping.")
+        return None
 
-        output_file = data_dir / f"chess_position_{i}_{safe_fen}.jpg"  # Save as JPEG
-        fen_file.write_text(fen)
-        if output_file.exists():
-            logging.warning(
-                f"Image {output_file} already exists. Skipping position {i}."
-            )
-            return None
+    fen_file = data_dir / f"chess_position_{i}_{safe_fen}.fen"  # Save as FEN
+    output_file = data_dir / f"chess_position_{i}_{safe_fen}.jpg"  # Save as JPEG
+    fen_file.write_text(fen)
+    if output_file.exists():
+        logging.warning(
+            f"Image {output_file} already exists. Skipping position {i}."
+        )
+        return None
 
+    try:
         # Convert board to SVG
         svg_data = chess.svg.board(board=board)
+    except chess.svg.SvgError as e:
+        logging.error(f"Error occurred while converting board to SVG for position {i}: {type(e).__name__}, {e}")
+        return None
 
+    try:
         # Directly convert SVG to JPEG
         jpeg_data = cairosvg.svg2jpeg(bytestring=svg_data.encode("utf-8"))
         logging.info(f"Converted SVG to JPEG for position {i}")
+    except cairosvg.Error as e:
+        logging.error(f"Error occurred while converting SVG to JPEG for position {i}: {type(e).__name__}, {e}")
+        return None
 
+    try:
         # Save JPEG to disk
         with open(str(output_file), "wb") as f:
             f.write(jpeg_data)
         logging.info(f"Generated image for position {i} and saved to {output_file}")
-    except (chess.BoardError, cairosvg.Error, OSError) as e:
-        logging.error(f"Error occurred while generating position {i}: {type(e).__name__}, {e}")
-        # Ensure output_file is defined before attempting to check if it exists
-        if output_file and output_file.exists():
+    except OSError as e:
+        logging.error(f"Error occurred while saving JPEG for position {i}: {type(e).__name__}, {e}")
+        if output_file.exists():
             os.remove(output_file)
             logging.info(f"Removed failed file {output_file}")
         output_file = None
@@ -277,36 +288,50 @@ def augment_and_save_images(files, image_size, num_augmented_images, data_dir, f
             try:
                 with Image.open(file_path) as img:
                     img = np.array(img.resize(image_size))
-                    img = np.reshape(img, (image_size[0], image_size[1], 3))  # Reshape the image
-                    img = img.astype('uint8')  # Ensure the image is in the correct data type
-                    aug_imgs = augment_images(img, num_augmented_images)
-                    aug_img_paths = [
-                        data_dir.joinpath(folder, f"{file_path.stem}_{idx}.jpg")
-                        for idx in range(num_augmented_images)
-                    ]
-                    for aug_img, aug_img_path in zip(aug_imgs, aug_img_paths):
-                        with Image.fromarray(aug_img) as img:
-                            img.save(aug_img_path, "JPEG", quality=85)
-                logging.info(
-                    f"Augmented and saved {num_augmented_images} images for {file_path}"
-                )
-                pbar.update(num_augmented_images)  # Update the progress bar here
-                
-                # Save some examples for inspection
-                if save_examples and file_path.stem.endswith("_0"):
-                    example_dir = Path("examples/augmented").resolve()
-                    example_dir.mkdir(parents=True, exist_ok=True)
-                    for i, aug_img_path in enumerate(aug_img_paths[:10]):
-                        shutil.copy(aug_img_path, example_dir / f"example_{i}.jpg")
-                    logging.info(f"Saved examples of augmented images to {example_dir}")
-            except Exception as e:
-                logging.error(
-                    f"Error occurred while augmenting and saving image {file_path}: {type(e).__name__}, {e}"
-                )
-                for aug_img_path in aug_img_paths:
+            except OSError as e:
+                logging.error(f"Error occurred while opening image file {file_path}: {type(e).__name__}, {e}")
+                return
+
+            try:
+                img = np.reshape(img, (image_size[0], image_size[1], 3))  # Reshape the image
+                img = img.astype('uint8')  # Ensure the image is in the correct data type
+            except ValueError as e:
+                logging.error(f"Error occurred while reshaping or converting data type of image {file_path}: {type(e).__name__}, {e}")
+                return
+
+            try:
+                aug_imgs = augment_images(img, num_augmented_images)
+            except Exception as e:  # Catch all exceptions as the augment_images function can raise various types of exceptions
+                logging.error(f"Error occurred while augmenting image {file_path}: {type(e).__name__}, {e}")
+                return
+
+            aug_img_paths = [
+                data_dir.joinpath(folder, f"{file_path.stem}_{idx}.jpg")
+                for idx in range(num_augmented_images)
+            ]
+            for aug_img, aug_img_path in zip(aug_imgs, aug_img_paths):
+                try:
+                    with Image.fromarray(aug_img) as img:
+                        img.save(aug_img_path, "JPEG", quality=85)
+                except OSError as e:
+                    logging.error(f"Error occurred while saving augmented image {aug_img_path}: {type(e).__name__}, {e}")
                     if aug_img_path.exists():
                         os.remove(aug_img_path)
                         logging.info(f"Removed failed file {aug_img_path}")
+                    continue
+
+            logging.info(
+                f"Augmented and saved {num_augmented_images} images for {file_path}"
+            )
+            pbar.update(num_augmented_images)  # Update the progress bar here
+
+            # Save some examples for inspection
+            if save_examples and file_path.stem.endswith("_0"):
+                example_dir = Path("examples/augmented").resolve()
+                example_dir.mkdir(parents=True, exist_ok=True)
+                for i, aug_img_path in enumerate(aug_img_paths[:10]):
+                    shutil.copy(aug_img_path, example_dir / f"example_{i}.jpg")
+                logging.info(f"Saved examples of augmented images to {example_dir}")
 
 
 
