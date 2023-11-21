@@ -86,18 +86,198 @@ def setup_directories(data_dir):
 # Augment images and log the process
 class ImageGenerator:
     def augment_images(self, img, num_augmented_images):
+        """
+        Augments images and logs the process.
+        This function applies a series of transformations to the input image, including rotation, noise addition, cropping, contrast adjustment, and brightness adjustment.
+        The transformations are applied in parallel using multiprocessing to speed up the process.
+        
+        Args:
+            img (numpy.ndarray): The image to be augmented. This should be a 3D array representing an RGB image.
+            num_augmented_images (int): The number of augmented images to generate. This should be a positive integer.
+
+        Returns:
+            numpy.ndarray: A 4D array containing the augmented images. The first dimension is the number of images, and the other three dimensions are the image dimensions.
+        """
+        aug = iaa.Sequential(
+            [
+                iaa.Affine(rotate=(-25, 25)),
+                # Removed flipping as it can alter the orientation of chess pieces
+                iaa.AdditiveGaussianNoise(scale=(10, 60)),
+                iaa.Crop(percent=(0, 0.2)),
+                iaa.LinearContrast((0.75, 1.5)),
+                iaa.Multiply((0.8, 1.2)),  # Brightness adjustment
+                iaa.GammaContrast((0.8, 1.2)),  # Contrast adjustment
+                iaa.CropAndPad(percent=(-0.25, 0.25)),  # Random cropping
+            ]
+        )
+
+        # Use multiprocessing to parallelize image augmentation
+        with Pool(multiprocessing.cpu_count()) as p:
+            augmented_images = list(
+                tqdm(
+                    p.imap(aug.augment_image, [img] * num_augmented_images),
+                    total=num_augmented_images,
+                    desc="Augmenting images",
+                )
+            )
+
+        logging.info(f"Augmented {num_augmented_images} images.")
+        return np.array(augmented_images)
+
+
+
+    # Generates a random chess position as a JPEG image file.
+    def generate_position(self, i, data_dir):
+        """
+        Generates a random chess position as a JPEG image file.
+        This function creates a random chess position by making a series of random legal moves on a chess board.
+        It then converts the board to a FEN string and saves it as a .fen file.
+        The board is also converted to an SVG image, which is then converted to a JPEG image and saved as a .jpg file.
+        
+        Args:
+            i (int): The index of the position. This is used to name the output files.
+            data_dir (str): The directory where the image and FEN file will be stored. This directory will be created if it does not exist.
+
+        Returns:
+            str: The path to the output JPEG file, or None if an error occurred.
+        """
+        data_dir = Path(data_dir).resolve()
+        output_file = None
+        logging.info(f"Starting to generate position {i}")
+        board = chess.Board()
+        for _ in range(np.random.randint(1, 50)):
+            if not board.is_game_over():
+                move = random.choice(list(board.legal_moves))
+                board.push(move)
+
+        try:
+            fen = board.fen()
+        except chess.BoardError as e:
+            logging.error(f"Error occurred while generating FEN for position {i}: {type(e).__name__}, {e}")
+            return None
+
+        # Validate FEN string
+        if not chess.Board(fen).is_valid():
+            logging.warning(f"Invalid FEN string generated for position {i}. Skipping.")
+            return None
+
+        fen_file = data_dir / f"chess_position_{i}_{safe_fen}.fen"  # Save as FEN
+        output_file = data_dir / f"chess_position_{i}_{safe_fen}.jpg"  # Save as JPEG
+        fen_file.write_text(fen)
+        if output_file.exists():
+            logging.warning(
+                f"Image {output_file} already exists. Skipping position {i}."
+            )
+            return None
+
+        try:
+            # Convert board to SVG
+            svg_data = chess.svg.board(board=board)
+        except chess.svg.SvgError as e:
+            logging.error(f"Error occurred while converting board to SVG for position {i}: {type(e).__name__}, {e}")
+            return None
+
+        try:
+            # Directly convert SVG to JPEG
+            jpeg_data = cairosvg.svg2jpeg(bytestring=svg_data.encode("utf-8"))
+            logging.info(f"Converted SVG to JPEG for position {i}")
+        except cairosvg.Error as e:
+            logging.error(f"Error occurred while converting SVG to JPEG for position {i}: {type(e).__name__}, {e}")
+            return None
+
+        try:
+            # Save JPEG to disk
+            with open(str(output_file), "wb") as f:
+                f.write(jpeg_data)
+            logging.info(f"Generated image for position {i} and saved to {output_file}")
+        except OSError as e:
+            logging.error(f"Error occurred while saving JPEG for position {i}: {type(e).__name__}, {e}")
+            if output_file.exists():
+                os.remove(output_file)
+                logging.info(f"Removed failed file {output_file}")
+            output_file = None
+        return output_file
+
+    def generate_position_with_data_dir(self, i):
+        """
+        Wrapper function for generate_position that uses the global data_dir variable.
+        
+        Args:
+            i (int): The index of the position.
+            
+        Returns:
+            str: The path to the output file.
+        """
+        return self.generate_position(i, data_dir)
+
+
+    def generate_images(self, num_positions, data_dir, save_examples=False):
+        """
+        Generates a specified number of chess position images.
+        This function generates a specified number of random chess positions and saves them as JPEG images.
+        It uses multiprocessing to speed up the process.
+        If requested, it also saves a few examples of the generated images for inspection.
+        
+        Args:
+            num_positions (int): The number of positions to generate. This should be a positive integer.
+            data_dir (str): The directory where the images will be stored. This directory will be created if it does not exist.
+            save_examples (bool, optional): Whether to save examples of the generated images. If True, the first 10 images are copied to an 'examples/generated' directory. Defaults to False.
+
+        Returns:
+            list: The paths to the generated images. If an error occurred while generating an image, its path is not included in the list.
+        """
+        data_dir = Path(data_dir).resolve()
+        num_processes = min(multiprocessing.cpu_count(), num_positions)
+        counter = Value('i', 0)
+        with tqdm(total=num_positions, file=open(os.devnull, 'w')) as pbar:
+            with Pool(processes=num_processes) as pool:
+                for i, output_file in enumerate(pool.imap_unordered(self.generate_position_with_data_dir, range(num_positions))):
+                    if output_file is not None:
+                        output_path = Path(output_file)
+                        if output_file.is_file():
+                            with output_path.open("rb") as f:
+                                with counter.get_lock():
+                                    counter.value += 1
+                                    pbar.update(counter.value)
+                                logging.info(f"Successfully generated image for position {i}")
+                        else:
+                            logging.warning(f"Failed to generate image for position {i}")
+                files = [f for f in pool.imap(self.generate_position_with_data_dir, range(num_positions)) if f is not None and Path(f).is_file()]
+        logging.info(f"Generated {len(files)} images out of {num_positions} requested")
+        
+        # Save some examples for inspection
+        if save_examples:
+            example_dir = Path("examples/generated").resolve()
+            example_dir.mkdir(parents=True, exist_ok=True)
+            for i, file in enumerate(files[:10]):
+                shutil.copy(file, example_dir / f"example_{i}.jpg")
+            logging.info(f"Saved examples of generated images to {example_dir}")
+        
+        return files
+
+# Split file paths and log the process
+def split_files(files, train_test_ratio, val_ratio):  # Added validation ratio
     """
-    Augments images and logs the process.
-    This function applies a series of transformations to the input image, including rotation, noise addition, cropping, contrast adjustment, and brightness adjustment.
-    The transformations are applied in parallel using multiprocessing to speed up the process.
+    Splits the files into training, validation, and test sets.
+    This function splits a list of files into three sets: training, validation, and test.
+    The sizes of the sets are determined by the specified ratios.
+    The splitting is done randomly but in a deterministic way, so the same split can be reproduced if the function is called with the same arguments.
     
     Args:
-        img (numpy.ndarray): The image to be augmented. This should be a 3D array representing an RGB image.
-        num_augmented_images (int): The number of augmented images to generate. This should be a positive integer.
+        files (list): The files to be split. This should be a list of file paths.
+        train_test_ratio (float): The ratio of training files to total files. This should be a number between 0 and 1.
+        val_ratio (float): The ratio of validation files to total files. This should be a number between 0 and 1.
 
     Returns:
-        numpy.ndarray: A 4D array containing the augmented images. The first dimension is the number of images, and the other three dimensions are the image dimensions.
+        tuple: Three lists containing the training, validation, and test files, respectively.
     """
+    train_files, temp_files = train_test_split(
+        files, test_size=1 - train_test_ratio, random_state=42
+    )
+    val_files, test_files = train_test_split(
+        temp_files, test_size=val_ratio/(1-train_test_ratio), random_state=42
+    )  # Split remaining files into validation and test sets
+    logging.info(
     aug = iaa.Sequential(
         [
             iaa.Affine(rotate=(-25, 25)),
