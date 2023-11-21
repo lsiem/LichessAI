@@ -98,31 +98,6 @@ class ImageGenerator:
         Returns:
             numpy.ndarray: A 4D array containing the augmented images. The first dimension is the number of images, and the other three dimensions are the image dimensions.
         """
-        aug = iaa.Sequential(
-            [
-                iaa.Affine(rotate=(-25, 25)),
-                # Removed flipping as it can alter the orientation of chess pieces
-                iaa.AdditiveGaussianNoise(scale=(10, 60)),
-                iaa.Crop(percent=(0, 0.2)),
-                iaa.LinearContrast((0.75, 1.5)),
-                iaa.Multiply((0.8, 1.2)),  # Brightness adjustment
-                iaa.GammaContrast((0.8, 1.2)),  # Contrast adjustment
-                iaa.CropAndPad(percent=(-0.25, 0.25)),  # Random cropping
-            ]
-        )
-
-        # Use multiprocessing to parallelize image augmentation
-        with Pool(multiprocessing.cpu_count()) as p:
-            augmented_images = list(
-                tqdm(
-                    p.imap(aug.augment_image, [img] * num_augmented_images),
-                    total=num_augmented_images,
-                    desc="Augmenting images",
-                )
-            )
-
-        logging.info(f"Augmented {num_augmented_images} images.")
-        return np.array(augmented_images)
 
 
 
