@@ -85,7 +85,7 @@ def setup_directories(data_dir):
 
 # Augment images and log the process
 class ImageGenerator:
-def augment_images(self, img, num_augmented_images):
+    def augment_images(self, img, num_augmented_images):
     """
     Augments images and logs the process.
     This function applies a series of transformations to the input image, including rotation, noise addition, cropping, contrast adjustment, and brightness adjustment.
@@ -127,7 +127,7 @@ def augment_images(self, img, num_augmented_images):
 
 
 # Generates a random chess position as a JPEG image file.
-    def generate_position(self, i, data_dir):
+        def generate_position(self, i, data_dir):
     """
     Generates a random chess position as a JPEG image file.
     This function creates a random chess position by making a series of random legal moves on a chess board.
@@ -198,7 +198,7 @@ def augment_images(self, img, num_augmented_images):
         output_file = None
     return output_file
 
-    def generate_position_with_data_dir(self, i):
+        def generate_position_with_data_dir(self, i):
     """
     Wrapper function for generate_position that uses the global data_dir variable.
     
@@ -211,7 +211,7 @@ def augment_images(self, img, num_augmented_images):
     return generate_position(i, data_dir)
 
 
-    def generate_images(self, num_positions, data_dir, save_examples=False):
+        def generate_images(self, num_positions, data_dir, save_examples=False):
     """
     Generates a specified number of chess position images.
     This function generates a specified number of random chess positions and saves them as JPEG images.
