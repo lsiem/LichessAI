@@ -335,6 +335,7 @@ def split_files(files, train_test_ratio, val_ratio):  # Added validation ratio
     except chess.BoardError as e:
         logging.error(f"Error occurred while generating FEN for position {i}: {type(e).__name__}, {e}")
         return None
+    return None
 
     # Validate FEN string
     if not chess.Board(fen).is_valid():
