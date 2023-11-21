@@ -28,10 +28,14 @@ data_dir = Path("data").resolve()
 
 def setup_logging(log_dir):
     """
-    Sets up logging for the application.
+    Sets up logging for the application. This function configures the logging module to output log messages to a file and the console.
+    It creates a log file in the specified directory and sets the log level to INFO.
     
     Args:
-        log_dir (str): The directory where the log file will be stored.
+        log_dir (str): The directory where the log file will be stored. This directory will be created if it does not exist.
+
+    Returns:
+        None
     """
     log_dir = Path(log_dir).resolve()
     log_dir.mkdir(exist_ok=True)
@@ -57,12 +61,14 @@ def setup_logging(log_dir):
 def setup_directories(data_dir):
     """
     Sets up the train, test, and validation directories within the given data directory.
+    This function checks if the directories already exist and contain data. If they do, a warning is logged and None is returned.
+    If the directories do not exist, they are created.
     
     Args:
-        data_dir (str): The directory where the data will be stored.
-        
+        data_dir (str): The directory where the data will be stored. This directory will be created if it does not exist.
+
     Returns:
-        str: The data directory.
+        str: The absolute path to the data directory, or None if the directories already exist and contain data.
     """
     data_dir = Path(data_dir).resolve()
     # Check if directories already exist and contain data
@@ -81,13 +87,15 @@ def setup_directories(data_dir):
 def augment_images(img, num_augmented_images):
     """
     Augments images and logs the process.
+    This function applies a series of transformations to the input image, including rotation, noise addition, cropping, contrast adjustment, and brightness adjustment.
+    The transformations are applied in parallel using multiprocessing to speed up the process.
     
     Args:
-        img (numpy.ndarray): The image to be augmented.
-        num_augmented_images (int): The number of augmented images to generate.
-        
+        img (numpy.ndarray): The image to be augmented. This should be a 3D array representing an RGB image.
+        num_augmented_images (int): The number of augmented images to generate. This should be a positive integer.
+
     Returns:
-        numpy.ndarray: The augmented images.
+        numpy.ndarray: A 4D array containing the augmented images. The first dimension is the number of images, and the other three dimensions are the image dimensions.
     """
     aug = iaa.Sequential(
         [
@@ -121,13 +129,16 @@ def augment_images(img, num_augmented_images):
 def generate_position(i, data_dir):
     """
     Generates a random chess position as a JPEG image file.
+    This function creates a random chess position by making a series of random legal moves on a chess board.
+    It then converts the board to a FEN string and saves it as a .fen file.
+    The board is also converted to an SVG image, which is then converted to a JPEG image and saved as a .jpg file.
     
     Args:
-        i (int): The index of the position.
-        data_dir (str): The directory where the image will be stored.
-        
+        i (int): The index of the position. This is used to name the output files.
+        data_dir (str): The directory where the image and FEN file will be stored. This directory will be created if it does not exist.
+
     Returns:
-        str: The path to the output file.
+        str: The path to the output JPEG file, or None if an error occurred.
     """
     data_dir = Path(data_dir).resolve()
     output_file = None
@@ -202,14 +213,17 @@ def generate_position_with_data_dir(i):
 def generate_images(num_positions, data_dir, save_examples=False):
     """
     Generates a specified number of chess position images.
+    This function generates a specified number of random chess positions and saves them as JPEG images.
+    It uses multiprocessing to speed up the process.
+    If requested, it also saves a few examples of the generated images for inspection.
     
     Args:
-        num_positions (int): The number of positions to generate.
-        data_dir (str): The directory where the images will be stored.
-        save_examples (bool, optional): Whether to save examples of the generated images. Defaults to False.
-        
+        num_positions (int): The number of positions to generate. This should be a positive integer.
+        data_dir (str): The directory where the images will be stored. This directory will be created if it does not exist.
+        save_examples (bool, optional): Whether to save examples of the generated images. If True, the first 10 images are copied to an 'examples/generated' directory. Defaults to False.
+
     Returns:
-        list: The paths to the generated images.
+        list: The paths to the generated images. If an error occurred while generating an image, its path is not included in the list.
     """
     data_dir = Path(data_dir).resolve()
     num_processes = min(multiprocessing.cpu_count(), num_positions)
@@ -244,14 +258,17 @@ def generate_images(num_positions, data_dir, save_examples=False):
 def split_files(files, train_test_ratio, val_ratio):  # Added validation ratio
     """
     Splits the files into training, validation, and test sets.
+    This function splits a list of files into three sets: training, validation, and test.
+    The sizes of the sets are determined by the specified ratios.
+    The splitting is done randomly but in a deterministic way, so the same split can be reproduced if the function is called with the same arguments.
     
     Args:
-        files (list): The files to be split.
-        train_test_ratio (float): The ratio of training files to total files.
-        val_ratio (float): The ratio of validation files to total files.
-        
+        files (list): The files to be split. This should be a list of file paths.
+        train_test_ratio (float): The ratio of training files to total files. This should be a number between 0 and 1.
+        val_ratio (float): The ratio of validation files to total files. This should be a number between 0 and 1.
+
     Returns:
-        tuple: The training, validation, and test files.
+        tuple: Three lists containing the training, validation, and test files, respectively.
     """
     train_files, temp_files = train_test_split(
         files, test_size=1 - train_test_ratio, random_state=42
@@ -268,14 +285,20 @@ def split_files(files, train_test_ratio, val_ratio):  # Added validation ratio
 def augment_and_save_images(files, image_size, num_augmented_images, data_dir, folder, save_examples=False):
     """
     Augments and saves images.
+    This function opens each file in the input list, resizes the image to the specified size, and generates a specified number of augmented versions of the image.
+    The augmented images are saved in the specified directory and subdirectory.
+    If requested, it also saves a few examples of the augmented images for inspection.
     
     Args:
-        files (list): The files to be augmented.
-        image_size (tuple): The size of the images.
-        num_augmented_images (int): The number of augmented images to generate.
-        data_dir (str): The directory where the images will be stored.
-        folder (str): The subdirectory where the images will be stored.
-        save_examples (bool, optional): Whether to save examples of the augmented images. Defaults to False.
+        files (list): The files to be augmented. This should be a list of file paths.
+        image_size (tuple): The size of the images. This should be a tuple of two integers representing the width and height of the images.
+        num_augmented_images (int): The number of augmented images to generate. This should be a positive integer.
+        data_dir (str): The directory where the images will be stored. This directory will be created if it does not exist.
+        folder (str): The subdirectory where the images will be stored. This directory will be created if it does not exist.
+        save_examples (bool, optional): Whether to save examples of the augmented images. If True, the first 10 images are copied to an 'examples/augmented' directory. Defaults to False.
+
+    Returns:
+        None
     """
     data_dir = Path(data_dir).resolve()
     total_augmentations = len(files) * num_augmented_images
@@ -339,12 +362,14 @@ def augment_and_save_images(files, image_size, num_augmented_images, data_dir, f
 def move_files(files, data_dir, folder):
     """
     Moves the files to the respective directories and logs the process.
+    This function moves each file in the input list to the specified directory and subdirectory.
+    It logs a message for each file that is moved, and returns a list of the new paths of the moved files.
     
     Args:
-        files (list): The files to be moved.
-        data_dir (str): The directory where the files will be moved.
-        folder (str): The subdirectory where the files will be moved.
-        
+        files (list): The files to be moved. This should be a list of file paths.
+        data_dir (str): The directory where the files will be moved. This directory will be created if it does not exist.
+        folder (str): The subdirectory where the files will be moved. This directory will be created if it does not exist.
+
     Returns:
         list: The new paths of the moved files.
     """
@@ -364,6 +389,14 @@ def move_files(files, data_dir, folder):
 def main():
     """
     The main function of the script. Sets up logging and directories, generates and augments images, splits them into training, validation, and test sets, and moves them to their respective directories.
+    This function is the entry point of the script. It performs the following steps:
+    1. Sets up logging.
+    2. Sets up the data directory and its subdirectories for training, validation, and test data.
+    3. Generates a specified number of random chess position images.
+    4. Splits the generated images into training, validation, and test sets according to the specified ratios.
+    5. Moves the images to their respective directories.
+    6. Augments the images in each set and saves the augmented images in the same directories.
+    7. Deletes all files in the data directory after moving them into their respective subdirectories.
     """
     log_dir = Path("log").resolve()
     setup_logging(log_dir)
