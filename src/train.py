@@ -102,75 +102,70 @@ class ImageGenerator:
 
 
     # Generates a random chess position as a JPEG image file.
-    def generate_position(self, i, data_dir):
-        """
-        Generates a random chess position as a JPEG image file.
-        This function creates a random chess position by making a series of random legal moves on a chess board.
-        It then converts the board to a FEN string and saves it as a .fen file.
-        The board is also converted to an SVG image, which is then converted to a JPEG image and saved as a .jpg file.
-        
-        Args:
-            i (int): The index of the position. This is used to name the output files.
-            data_dir (str): The directory where the image and FEN file will be stored. This directory will be created if it does not exist.
-
-        Returns:
-            str: The path to the output JPEG file, or None if an error occurred.
-        """
-        data_dir = Path(data_dir).resolve()
-        output_file = None
-        logging.info(f"Starting to generate position {i}")
+    # Helper functions for generate_position
+    def create_random_chess_position(self):
         board = chess.Board()
         for _ in range(np.random.randint(1, 50)):
             if not board.is_game_over():
                 move = random.choice(list(board.legal_moves))
                 board.push(move)
+        return board
 
+    def save_fen_to_file(self, board, i, data_dir):
         try:
             fen = board.fen()
-        except chess.BoardError as e:
-            logging.error(f"Error occurred while generating FEN for position {i} with board state {board.fen()}: {type(e).__name__}, {e}")
+            safe_fen = fen.replace("/", "-")  # Replace slashes for file safety
+            fen_file = data_dir / f"chess_position_{i}_{safe_fen}.fen"
+            fen_file.write_text(fen)
+            return fen_file
+        except Exception as e:
+            logging.error(f"Error occurred while saving FEN for position {i}: {type(e).__name__}, {e}")
             return None
 
-        # Validate FEN string
-        if not chess.Board(fen).is_valid():
-            logging.warning(f"Invalid FEN string generated for position {i}. Skipping.")
-            return None
-
-        fen_file = data_dir / f"chess_position_{i}_{safe_fen}.fen"  # Save as FEN
-        output_file = data_dir / f"chess_position_{i}_{safe_fen}.jpg"  # Save as JPEG
-        fen_file.write_text(fen)
-        if output_file.exists():
-            logging.warning(
-                f"Image {output_file} already exists. Skipping position {i}."
-            )
-            return None
-
+    def convert_board_to_svg(self, board, i):
         try:
-            # Convert board to SVG
             svg_data = chess.svg.board(board=board)
-        except chess.svg.SvgError as e:
-            logging.error(f"Error occurred while converting board to SVG for position {i} with board state {board.fen()}: {type(e).__name__}, {e}")
+            return svg_data
+        except Exception as e:
+            logging.error(f"Error occurred while converting board to SVG for position {i}: {type(e).__name__}, {e}")
             return None
 
+    def convert_svg_to_jpeg(self, svg_data, i):
         try:
-            # Directly convert SVG to JPEG
             jpeg_data = cairosvg.svg2jpeg(bytestring=svg_data.encode("utf-8"))
-            logging.info(f"Converted SVG to JPEG for position {i}")
-        except cairosvg.Error as e:
-            logging.error(f"Error occurred while converting SVG to JPEG for position {i} with SVG data {svg_data}: {type(e).__name__}, {e}")
+            return jpeg_data
+        except Exception as e:
+            logging.error(f"Error occurred while converting SVG to JPEG for position {i}: {type(e).__name__}, {e}")
             return None
 
+    def save_jpeg_to_disk(self, jpeg_data, i, data_dir, safe_fen):
         try:
-            # Save JPEG to disk
+            output_file = data_dir / f"chess_position_{i}_{safe_fen}.jpg"
             with open(str(output_file), "wb") as f:
                 f.write(jpeg_data)
-            logging.info(f"Generated image for position {i} and saved to {output_file}")
-        except OSError as e:
-            logging.error(f"Error occurred while saving JPEG for position {i} with JPEG data {jpeg_data}: {type(e).__name__}, {e}")
-            if output_file.exists():
-                os.remove(output_file)
-                logging.info(f"Removed failed file {output_file}")
-            output_file = None
+            return output_file
+        except Exception as e:
+            logging.error(f"Error occurred while saving JPEG for position {i}: {type(e).__name__}, {e}")
+            return None
+
+    def generate_position(self, i, data_dir):
+        data_dir = Path(data_dir).resolve()
+        logging.info(f"Starting to generate position {i}")
+        board = self.create_random_chess_position()
+        fen_file = self.save_fen_to_file(board, i, data_dir)
+        if fen_file is None:
+            return None
+        svg_data = self.convert_board_to_svg(board, i)
+        if svg_data is None:
+            return None
+        jpeg_data = self.convert_svg_to_jpeg(svg_data, i)
+        if jpeg_data is None:
+            return None
+        safe_fen = board.fen().replace("/", "-")  # Replace slashes for file safety
+        output_file = self.save_jpeg_to_disk(jpeg_data, i, data_dir, safe_fen)
+        if output_file is None:
+            return None
+        logging.info(f"Generated image for position {i} and saved to {output_file}")
         return output_file
 
     def generate_position_with_data_dir(self, i):
