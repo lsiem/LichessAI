@@ -22,8 +22,25 @@ random.seed(42)
 
 data_dir = Path("data").resolve()
 
+def setup_logging(log_dir):
+    log_dir = Path(log_dir).resolve()
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / "app.log"
 
-from utils import setup_logging
+    # Create a console handler with a higher log level
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(filename=log_file),
+            console_handler
+        ],
+    )
+    logging.info("Logging setup complete. Logs will be written to {}".format(log_file))
+
 
 
 # Sets up the train, test, and validation directories within the given data directory. Checks if directories already exist and contain data, warns if they do, creates them if needed. Logs status messages. Returns the data directory.

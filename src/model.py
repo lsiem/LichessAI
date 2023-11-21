@@ -17,10 +17,8 @@ def preprocess(images):
     return images
 
 class ImageClassifier:
-    def __init__(self, train_dir, test_dir, val_dir):
-        self.train_dir = train_dir
-        self.test_dir = test_dir
-        self.val_dir = val_dir
+    def __init__(self, data_dir):
+        self.data_dir = data_dir
         self.label_encoder = LabelEncoder()
         self.train_datagen = ImageDataGenerator(
             rotation_range=20,
@@ -36,17 +34,17 @@ class ImageClassifier:
         self.test_datagen = ImageDataGenerator(preprocessing_function=preprocess)
         try:
             self.train_generator = self.train_datagen.flow_from_directory(
-                self.train_dir,
+                os.path.join(self.data_dir, 'train'),
                 target_size=(224, 224),
                 batch_size=32,
                 class_mode='categorical')
             self.val_generator = self.val_datagen.flow_from_directory(
-                self.val_dir, 
+                os.path.join(self.data_dir, 'val'), 
                 target_size=(224, 224),
                 batch_size=32,
                 class_mode='categorical')
             self.test_generator = self.test_datagen.flow_from_directory(
-                self.test_dir, 
+                os.path.join(self.data_dir, 'test'), 
                 target_size=(224, 224),
                 batch_size=32,
                 class_mode='categorical')
@@ -86,7 +84,7 @@ class ImageClassifier:
         self.model.save('chess_model.keras')
 
 try:
-    claclassifier = ImageClassifier('data/train', 'data/test', 'data/val')
+    claclassifier = ImageClassifier('data')
     claclassifier.train_model()
 except Exception as e:
     print(f"Error occurred while training the model: {e}")
