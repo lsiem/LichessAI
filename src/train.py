@@ -103,9 +103,10 @@ def generate_position(i, data_dir):
             logging.warning(f"Invalid FEN string generated for position {i}. Skipping.")
             return None
 
-        safe_fen = fen.replace("/", "_")
+        fen_file = data_dir / f"chess_position_{i}_{safe_fen}.fen"  # Save as FEN
 
         output_file = data_dir / f"chess_position_{i}_{safe_fen}.jpg"  # Save as JPEG
+        fen_file.write_text(fen)
         if output_file.exists():
             logging.warning(
                 f"Image {output_file} already exists. Skipping position {i}."
