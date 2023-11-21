@@ -85,7 +85,7 @@ def setup_directories(data_dir):
 
 # Augment images and log the process
 class ImageGenerator:
-    def augment_images(self, img, num_augmented_images):
+def augment_images(self, img, num_augmented_images):
     """
     Augments images and logs the process.
     This function applies a series of transformations to the input image, including rotation, noise addition, cropping, contrast adjustment, and brightness adjustment.
